@@ -11,35 +11,35 @@ from matplotlib.colors import Normalize
 from matplotlib.gridspec import GridSpec
 import numpy as np
 
-from v12 import ETA4, TriadMonSTERFastVec, apply_monster_triad_fast_vec
+from v12 import TriadMonSTERFastVec, apply_monster_triad_fast_vec
 
 
 # ============================================================================
 # Editable hyperparameters
 # ============================================================================
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_PATH = ROOT / "outputs" / "monster_hyperparam_grid.png"
+OUTPUT_PATH = ROOT / "outputs" / "monster_time_sign_diagnostic.png"
 
 IMAGE_SIZE = 16
 EMBED_DIM = 768
 THETA_BASE = 10_000.0
 TOP_DELTA = 16.0
-SEED = 0
+UNIT_SCALE = 1.0
 
 QUERY_X = 8
 QUERY_Y = 8
 QUERY_ON_VALUE = 100.0
 
 KEY_T_VALUE = 0.0
-QUERY_T_VALUES = [-8.0, -16.0, -24.0]
-UNIT_SCALE = 1.0
+QUERY_T_ABS_VALUES = [8.0, 16.0, 24.0]
 
-FIGSIZE = (24.0, 4.5)
+SEED = 0
+METRIC = np.diag([-1.0, 1.0, 1.0, 1.0]).astype(np.float64)
+METRIC_LABEL = "(-,+,+,+)"
+
+FIGSIZE = (24.0, 4.8)
 AXES_PAD = 0.08
 CBAR_RATIO = 0.05
-GROUP_SPACER_RATIO = 0.35
-
-ETA4_NEGPOS = np.diag([-1.0, 1.0, 1.0, 1.0]).astype(np.float64)
 
 
 def random_embedding(d: int, rng: np.random.Generator) -> np.ndarray:
@@ -76,14 +76,14 @@ def transform_positions(
     positions: np.ndarray,
     monster: TriadMonSTERFastVec,
 ) -> np.ndarray:
-    transformed_keys = np.empty((positions.shape[0], monster.dim), dtype=np.float64)
+    transformed = np.empty((positions.shape[0], monster.dim), dtype=np.float64)
     for idx, position in enumerate(positions):
-        transformed_keys[idx] = apply_monster_triad_fast_vec(
+        transformed[idx] = apply_monster_triad_fast_vec(
             base_vector,
             monster.forward(position),
             dim=monster.dim,
         )
-    return transformed_keys
+    return transformed
 
 
 def transform_vector_at_position(
@@ -98,7 +98,7 @@ def transform_vector_at_position(
     )
 
 
-def score_transformed_vectors(
+def score_map(
     transformed_query: np.ndarray,
     transformed_keys: np.ndarray,
     metric: np.ndarray,
@@ -110,51 +110,38 @@ def score_transformed_vectors(
 
 def plot_grid(
     query_image: np.ndarray,
-    panel_titles: list[str],
-    posneg_maps: list[np.ndarray],
-    negpos_maps: list[np.ndarray],
+    positive_titles: list[str],
+    negative_titles: list[str],
+    positive_maps: list[np.ndarray],
+    negative_maps: list[np.ndarray],
     output_path: Path,
 ) -> None:
-    fig = plt.figure(figsize=(24.0, 4.8))
-    posneg_norm = Normalize(
-        vmin=min(float(panel.min()) for panel in posneg_maps),
-        vmax=max(float(panel.max()) for panel in posneg_maps),
-    )
-    negpos_norm = Normalize(
-        vmin=min(float(panel.min()) for panel in negpos_maps),
-        vmax=max(float(panel.max()) for panel in negpos_maps),
+    fig = plt.figure(figsize=FIGSIZE)
+    score_norm = Normalize(
+        vmin=min(float(panel.min()) for panel in positive_maps + negative_maps),
+        vmax=max(float(panel.max()) for panel in positive_maps + negative_maps),
     )
     grid = GridSpec(
         1,
-        9,
+        8,
         figure=fig,
         left=0.03,
         right=0.97,
         top=0.74,
         bottom=0.16,
         wspace=AXES_PAD,
-        width_ratios=[
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            CBAR_RATIO,
-            1.0,
-            1.0,
-            1.0,
-            CBAR_RATIO,
-        ],
+        width_ratios=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, CBAR_RATIO],
     )
+
     binary_ax = fig.add_subplot(grid[0, 0])
-    posneg_axes = [fig.add_subplot(grid[0, idx]) for idx in (1, 2, 3)]
-    posneg_cbar_ax = fig.add_subplot(grid[0, 4])
-    negpos_axes = [fig.add_subplot(grid[0, idx]) for idx in (5, 6, 7)]
-    negpos_cbar_ax = fig.add_subplot(grid[0, 8])
+    positive_axes = [fig.add_subplot(grid[0, idx]) for idx in (1, 2, 3)]
+    negative_axes = [fig.add_subplot(grid[0, idx]) for idx in (4, 5, 6)]
+    cbar_ax = fig.add_subplot(grid[0, 7])
 
     fig.suptitle(
         (
-            f"MonSTERs comparison | dim={EMBED_DIM} | base={THETA_BASE:g} | "
-            f"top_delta={TOP_DELTA:g} | query=({QUERY_X}, {QUERY_Y})"
+            f"MonSTERs time-sign diagnostic | distinct q/k vectors | metric {METRIC_LABEL} | "
+            f"dim={EMBED_DIM} | base={THETA_BASE:g} | top_delta={TOP_DELTA:g}"
         ),
         fontsize=15,
     )
@@ -163,39 +150,36 @@ def plot_grid(
     binary_ax.set_title("Binary input", fontsize=11)
     binary_ax.axis("off")
 
-    left_last_image = None
-    for axis, title, panel in zip(posneg_axes, panel_titles, posneg_maps):
-        left_last_image = axis.imshow(panel, cmap="viridis", norm=posneg_norm)
+    last_image = None
+    for axis, title, panel in zip(positive_axes, positive_titles, positive_maps):
+        last_image = axis.imshow(panel, cmap="viridis", norm=score_norm)
+        axis.set_title(title, fontsize=11)
+        axis.axis("off")
+    for axis, title, panel in zip(negative_axes, negative_titles, negative_maps):
+        last_image = axis.imshow(panel, cmap="viridis", norm=score_norm)
         axis.set_title(title, fontsize=11)
         axis.axis("off")
 
-    right_last_image = None
-    for axis, title, panel in zip(negpos_axes, panel_titles, negpos_maps):
-        right_last_image = axis.imshow(panel, cmap="viridis", norm=negpos_norm)
-        axis.set_title(title, fontsize=11)
-        axis.axis("off")
+    if last_image is None:
+        raise RuntimeError("Expected at least one score panel.")
+    fig.colorbar(last_image, cax=cbar_ax)
 
-    if left_last_image is None or right_last_image is None:
-        raise RuntimeError("Expected MonSTER panel images in both metric groups.")
-    fig.colorbar(left_last_image, cax=posneg_cbar_ax)
-    fig.colorbar(right_last_image, cax=negpos_cbar_ax)
-
-    posneg_left = posneg_axes[0].get_position().x0
-    posneg_right = posneg_axes[-1].get_position().x1
-    negpos_left = negpos_axes[0].get_position().x0
-    negpos_right = negpos_axes[-1].get_position().x1
+    positive_left = positive_axes[0].get_position().x0
+    positive_right = positive_axes[-1].get_position().x1
+    negative_left = negative_axes[0].get_position().x0
+    negative_right = negative_axes[-1].get_position().x1
     fig.text(
-        0.5 * (posneg_left + posneg_right),
+        0.5 * (positive_left + positive_right),
         0.80,
-        "Standard coordinates | metric (+,-,-,-)",
+        "Query ahead of keys (+Δt)",
         ha="center",
         va="center",
         fontsize=13,
     )
     fig.text(
-        0.5 * (negpos_left + negpos_right),
+        0.5 * (negative_left + negative_right),
         0.80,
-        "Standard coordinates | metric (-,+,+,+)",
+        "Query behind keys (-Δt)",
         ha="center",
         va="center",
         fontsize=13,
@@ -213,36 +197,53 @@ def main() -> None:
         raise ValueError("Query position must lie within the image grid.")
 
     rng = np.random.default_rng(SEED)
-    base_vector = random_embedding(EMBED_DIM, rng)
+    query_base_vector = random_embedding(EMBED_DIM, rng)
+    key_base_vector = random_embedding(EMBED_DIM, rng)
+
     query_index = QUERY_Y * IMAGE_SIZE + QUERY_X
     monster = TriadMonSTERFastVec(dim=EMBED_DIM, base=THETA_BASE, top_delta=TOP_DELTA)
     monster.unit = UNIT_SCALE / TOP_DELTA
 
-    panel_titles: list[str] = []
-    posneg_maps: list[np.ndarray] = []
-    negpos_maps: list[np.ndarray] = []
+    key_positions = make_standard_positions(IMAGE_SIZE, KEY_T_VALUE)
+    transformed_keys = transform_positions(key_base_vector, key_positions, monster)
+    query_position_base = key_positions[query_index].copy()
 
-    standard_positions = make_standard_positions(IMAGE_SIZE, KEY_T_VALUE)
-    standard_keys = transform_positions(base_vector, standard_positions, monster)
-    standard_query_base = standard_positions[query_index].copy()
+    positive_titles: list[str] = []
+    negative_titles: list[str] = []
+    positive_maps: list[np.ndarray] = []
+    negative_maps: list[np.ndarray] = []
 
-    for query_t in QUERY_T_VALUES:
-        query_position = standard_query_base.copy()
-        query_position[0] = query_t
-        transformed_query = transform_vector_at_position(base_vector, query_position, monster)
-        posneg_maps.append(score_transformed_vectors(transformed_query, standard_keys, ETA4))
-        negpos_maps.append(score_transformed_vectors(transformed_query, standard_keys, ETA4_NEGPOS))
-        panel_titles.append(f"key t={KEY_T_VALUE:g}, q t={query_t:g}")
+    for abs_t in QUERY_T_ABS_VALUES:
+        positive_query_position = query_position_base.copy()
+        positive_query_position[0] = abs_t
+        positive_query = transform_vector_at_position(query_base_vector, positive_query_position, monster)
+        positive_maps.append(score_map(positive_query, transformed_keys, METRIC))
+        positive_titles.append(f"key t={KEY_T_VALUE:g}, q t=+{abs_t:g}")
+
+        negative_query_position = query_position_base.copy()
+        negative_query_position[0] = -abs_t
+        negative_query = transform_vector_at_position(query_base_vector, negative_query_position, monster)
+        negative_maps.append(score_map(negative_query, transformed_keys, METRIC))
+        negative_titles.append(f"key t={KEY_T_VALUE:g}, q t=-{abs_t:g}")
 
     query_image = make_query_image(IMAGE_SIZE, QUERY_X, QUERY_Y, QUERY_ON_VALUE)
-    plot_grid(query_image, panel_titles, posneg_maps, negpos_maps, OUTPUT_PATH)
+    plot_grid(query_image, positive_titles, negative_titles, positive_maps, negative_maps, OUTPUT_PATH)
 
-    print(f"Saved MonSTERs comparison grid to {OUTPUT_PATH}")
+    print(f"Saved time-sign diagnostic to {OUTPUT_PATH}")
+    print(f"Metric: {METRIC_LABEL}")
     print(f"Key t value: {KEY_T_VALUE}")
-    print(f"Query t values: {QUERY_T_VALUES}")
+    print(f"Query |t| values: {QUERY_T_ABS_VALUES}")
     print(f"Unit scale: {UNIT_SCALE:.6g} / top_delta")
-    print("All six MonSTER panels use standard centered (x, y, z=0) coordinates.")
-    print("Left group uses metric (+,-,-,-); right group uses metric (-,+,+,+).")
+    print("Distinct random vectors are used for query and key content.")
+    for abs_t, positive_map, negative_map in zip(QUERY_T_ABS_VALUES, positive_maps, negative_maps):
+        diff = positive_map - negative_map
+        print(
+            "abs_t={:.0f} | max_abs_diff={:.6g} | mean_abs_diff={:.6g}".format(
+                abs_t,
+                float(np.max(np.abs(diff))),
+                float(np.mean(np.abs(diff))),
+            )
+        )
 
 
 if __name__ == "__main__":
