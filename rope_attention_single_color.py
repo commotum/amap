@@ -186,7 +186,7 @@ def plot_results(
         axes_pad=0.18,
         cbar_location="right",
         cbar_mode="single",
-        cbar_size="3%",
+        cbar_size="5%",
         cbar_pad=0.18,
     )
     axes = list(grid)
