@@ -10,6 +10,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
+from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
 
 
@@ -177,14 +178,18 @@ def plot_results(
     heat_max = max(float(axial_logits.max()), float(spiral_logits.max()))
     heat_norm = Normalize(vmin=heat_min, vmax=heat_max)
 
-    fig = plt.figure(figsize=(13, 4))
-    gs = fig.add_gridspec(1, 6, width_ratios=[1, 0.005, 1, 0.005, 1, 0.005])
-    axes = [
-        fig.add_subplot(gs[0, 0]),
-        fig.add_subplot(gs[0, 2]),
-        fig.add_subplot(gs[0, 4]),
-        fig.add_subplot(gs[0, 5]),
-    ]
+    fig = plt.figure(figsize=(12.4, 4.4))
+    grid = ImageGrid(
+        fig,
+        111,
+        nrows_ncols=(1, 3),
+        axes_pad=0.18,
+        cbar_location="right",
+        cbar_mode="single",
+        cbar_size="3%",
+        cbar_pad=0.18,
+    )
+    axes = list(grid)
     fig.suptitle(f"Query pixel: ({query_x}, {query_y})", fontsize=14)
 
     axes[0].imshow(image, cmap="viridis", vmin=0.0, vmax=100.0, interpolation="nearest")
@@ -198,9 +203,9 @@ def plot_results(
     im02 = axes[2].imshow(spiral_logits, cmap="viridis", norm=heat_norm)
     axes[2].set_title("Spiral RoPE")
     axes[2].axis("off")
-    fig.colorbar(im02, cax=axes[3])
+    grid.cbar_axes[0].colorbar(im02)
 
-    fig.subplots_adjust(left=0.04, right=0.96, top=0.82, bottom=0.08, wspace=0.0)
+    fig.subplots_adjust(left=0.04, right=0.94, top=0.82, bottom=0.08)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
