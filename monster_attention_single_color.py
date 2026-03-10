@@ -17,7 +17,7 @@ import numpy as np
 @dataclass(frozen=True)
 class AttentionConfig:
     image_size: int = 64
-    embed_dim: int = 512
+    embed_dim: int = 768
     num_directions: int = 8
     theta_base: float = 10_000.0
     seed: int = 0
@@ -25,7 +25,7 @@ class AttentionConfig:
     query_y: int = 32
 
 
-def random_embedding(d: int = 512, rng: np.random.Generator | None = None) -> np.ndarray:
+def random_embedding(d: int = 768, rng: np.random.Generator | None = None) -> np.ndarray:
     if rng is None:
         rng = np.random.default_rng()
     v = rng.normal(0.0, 1.0, d)
