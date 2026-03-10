@@ -8,7 +8,6 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
-from matplotlib.gridspec import GridSpec
 import numpy as np
 
 from v12 import TriadMonSTERFastVec, apply_monster_triad_fast_vec
@@ -33,7 +32,8 @@ QUERY_T_VALUE = 0.0
 UNIT_SCALE = 1.0
 
 FIGSIZE = (4.4, 4.8)
-CBAR_RATIO = 0.06
+CBAR_WIDTH = 0.035
+CBAR_PAD = 0.025
 
 ETA4_NEGPOS = np.diag([-1.0, 1.0, 1.0, 1.0]).astype(np.float64)
 
@@ -100,19 +100,7 @@ def score_transformed_vectors(
 
 def plot_grid(score_map: np.ndarray, output_path: Path) -> None:
     fig = plt.figure(figsize=FIGSIZE)
-    grid = GridSpec(
-        1,
-        2,
-        figure=fig,
-        left=0.06,
-        right=0.94,
-        top=0.96,
-        bottom=0.06,
-        wspace=0.08,
-        width_ratios=[1.0, CBAR_RATIO],
-    )
-    axis = fig.add_subplot(grid[0, 0])
-    cbar_axis = fig.add_subplot(grid[0, 1])
+    axis = fig.add_axes([0.06, 0.06, 0.80, 0.90])
 
     image = axis.imshow(
         score_map,
@@ -120,6 +108,11 @@ def plot_grid(score_map: np.ndarray, output_path: Path) -> None:
         norm=Normalize(vmin=float(score_map.min()), vmax=float(score_map.max())),
     )
     axis.axis("off")
+    axis.set_aspect("equal", adjustable="box")
+    fig.canvas.draw()
+
+    position = axis.get_position()
+    cbar_axis = fig.add_axes([position.x1 + CBAR_PAD, position.y0, CBAR_WIDTH, position.height])
     fig.colorbar(image, cax=cbar_axis)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
