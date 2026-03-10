@@ -58,6 +58,8 @@ function getDefaultQuery(gridValue: number) {
 export default function Page() {
   const [isOrtho, setIsOrtho] = useState(false)
   const [isControllerCollapsed, setIsControllerCollapsed] = useState(false)
+  const [isControllerHovered, setIsControllerHovered] = useState(false)
+  const [isControllerFocused, setIsControllerFocused] = useState(false)
   const [resetViewKey, setResetViewKey] = useState(0)
   const [gridValue, setGridValue] = useState(INITIAL_GRID_VALUE)
   const [dimValue, setDimValue] = useState(384)
@@ -74,6 +76,7 @@ export default function Page() {
     [gridValue]
   )
   const queryStep = getGridCoordinateStep()
+  const isControllerActive = isControllerHovered || isControllerFocused
 
   const updateGridValue = (direction: -1 | 1) => {
     const nextGridValue = cyclePreset(GRID_PRESETS, gridValue, direction)
@@ -89,6 +92,7 @@ export default function Page() {
       <MinkowskiViewer
         gridValue={gridValue}
         isOrtho={isOrtho}
+        orbitEnabled={!isControllerActive}
         resetViewKey={resetViewKey}
         dimValue={dimValue}
         thetaValue={thetaValue}
@@ -106,7 +110,19 @@ export default function Page() {
           pinned over the canvas.
         </div>
 
-        <div className="pointer-events-auto absolute top-4 right-4 z-10">
+        <div
+          className="pointer-events-auto absolute top-4 right-4 z-10"
+          onPointerEnter={() => setIsControllerHovered(true)}
+          onPointerLeave={() => setIsControllerHovered(false)}
+          onFocusCapture={() => setIsControllerFocused(true)}
+          onBlurCapture={(event) => {
+            const nextTarget = event.relatedTarget
+
+            if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
+              setIsControllerFocused(false)
+            }
+          }}
+        >
           {isControllerCollapsed ? (
             <Button
               type="button"

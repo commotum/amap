@@ -13,6 +13,7 @@ import type { MinkowskiControls } from "@/components/types"
 
 interface MinkowskiViewerProps extends MinkowskiControls {
   isOrtho: boolean
+  orbitEnabled: boolean
   resetViewKey: number
 }
 
@@ -83,6 +84,7 @@ function drawHeatmapGrid(p: p5, scene: SketchScene) {
 export default function MinkowskiViewer({
   gridValue,
   isOrtho,
+  orbitEnabled,
   resetViewKey,
   dimValue,
   thetaValue,
@@ -134,12 +136,17 @@ export default function MinkowskiViewer({
   ])
 
   const hostRef = useRef<HTMLDivElement>(null)
+  const orbitEnabledRef = useRef(orbitEnabled)
   const sceneRef = useRef(scene)
   const sketchRef = useRef<p5 | null>(null)
 
   useEffect(() => {
     sceneRef.current = scene
   }, [scene])
+
+  useEffect(() => {
+    orbitEnabledRef.current = orbitEnabled
+  }, [orbitEnabled])
 
   useEffect(() => {
     let resizeObserver: ResizeObserver | null = null
@@ -187,7 +194,17 @@ export default function MinkowskiViewer({
           }
 
           p.background(0)
-          p.orbitControl(1, 1, 1, { freeRotation: true })
+
+          if (orbitEnabledRef.current) {
+            p.orbitControl(1, 1, 1, { freeRotation: true })
+          } else {
+            const pointerState = p as p5 & { _mouseWheelDeltaY?: number }
+
+            if (typeof pointerState._mouseWheelDeltaY === "number") {
+              pointerState._mouseWheelDeltaY = 0
+            }
+          }
+
           p.scale(1, -1, 1)
           drawHeatmapGrid(p, activeScene)
         }
