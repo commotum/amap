@@ -18,9 +18,9 @@ from v12 import TriadMonSTERFastVec, apply_monster_triad_fast_vec
 # Editable hyperparameters
 # ============================================================================
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_PATH = ROOT / "outputs" / "monster_hyperparam_grid.png"
+OUTPUT_PATH = ROOT / "outputs" / "monster_single_grid_t0.png"
 
-IMAGE_SIZE = 16
+IMAGE_SIZE = 17
 EMBED_DIM = 768
 THETA_BASE = 10_000.0
 TOP_DELTA = 16.0
@@ -28,15 +28,12 @@ SEED = 0
 
 QUERY_X = 8
 QUERY_Y = 8
-QUERY_ON_VALUE = 100.0
-
 KEY_T_VALUE = 0.0
-QUERY_T_VALUES = [-8.0, -16.0, -24.0]
+QUERY_T_VALUE = 0.0
 UNIT_SCALE = 1.0
 
-FIGSIZE = (13.7, 4.8)
-AXES_PAD = 0.08
-CBAR_RATIO = 0.05
+FIGSIZE = (4.4, 4.8)
+CBAR_RATIO = 0.06
 
 ETA4_NEGPOS = np.diag([-1.0, 1.0, 1.0, 1.0]).astype(np.float64)
 
@@ -45,12 +42,6 @@ def random_embedding(d: int, rng: np.random.Generator) -> np.ndarray:
     v = rng.normal(0.0, 1.0, d)
     v = v / np.linalg.norm(v) * np.sqrt(d)
     return v
-
-
-def make_query_image(size: int, query_x: int, query_y: int, on_value: float) -> np.ndarray:
-    image = np.zeros((size, size), dtype=float)
-    image[query_y, query_x] = on_value
-    return image
 
 
 def centered_xy_coords(size: int) -> tuple[np.ndarray, np.ndarray]:
@@ -107,70 +98,29 @@ def score_transformed_vectors(
     return logits.reshape(side, side)
 
 
-def plot_grid(
-    query_image: np.ndarray,
-    panel_titles: list[str],
-    negpos_maps: list[np.ndarray],
-    output_path: Path,
-) -> None:
+def plot_grid(score_map: np.ndarray, output_path: Path) -> None:
     fig = plt.figure(figsize=FIGSIZE)
-    negpos_norm = Normalize(
-        vmin=min(float(panel.min()) for panel in negpos_maps),
-        vmax=max(float(panel.max()) for panel in negpos_maps),
-    )
     grid = GridSpec(
         1,
-        5,
+        2,
         figure=fig,
-        left=0.03,
-        right=0.97,
-        top=0.74,
-        bottom=0.16,
-        wspace=AXES_PAD,
-        width_ratios=[
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            CBAR_RATIO,
-        ],
+        left=0.06,
+        right=0.94,
+        top=0.96,
+        bottom=0.06,
+        wspace=0.08,
+        width_ratios=[1.0, CBAR_RATIO],
     )
-    binary_ax = fig.add_subplot(grid[0, 0])
-    negpos_axes = [fig.add_subplot(grid[0, idx]) for idx in (1, 2, 3)]
-    negpos_cbar_ax = fig.add_subplot(grid[0, 4])
+    axis = fig.add_subplot(grid[0, 0])
+    cbar_axis = fig.add_subplot(grid[0, 1])
 
-    fig.suptitle(
-        (
-            f"MonSTERs comparison | dim={EMBED_DIM} | base={THETA_BASE:g} | "
-            f"top_delta={TOP_DELTA:g} | query=({QUERY_X}, {QUERY_Y})"
-        ),
-        fontsize=15,
+    image = axis.imshow(
+        score_map,
+        cmap="viridis",
+        norm=Normalize(vmin=float(score_map.min()), vmax=float(score_map.max())),
     )
-
-    binary_ax.imshow(query_image, cmap="viridis", vmin=0.0, vmax=QUERY_ON_VALUE, interpolation="nearest")
-    binary_ax.set_title("Binary input", fontsize=11)
-    binary_ax.axis("off")
-
-    right_last_image = None
-    for axis, title, panel in zip(negpos_axes, panel_titles, negpos_maps):
-        right_last_image = axis.imshow(panel, cmap="viridis", norm=negpos_norm)
-        axis.set_title(title, fontsize=11)
-        axis.axis("off")
-
-    if right_last_image is None:
-        raise RuntimeError("Expected MonSTER panel images.")
-    fig.colorbar(right_last_image, cax=negpos_cbar_ax)
-
-    negpos_left = negpos_axes[0].get_position().x0
-    negpos_right = negpos_axes[-1].get_position().x1
-    fig.text(
-        0.5 * (negpos_left + negpos_right),
-        0.80,
-        "Standard coordinates | metric (-,+,+,+)",
-        ha="center",
-        va="center",
-        fontsize=13,
-    )
+    axis.axis("off")
+    fig.colorbar(image, cax=cbar_axis)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
@@ -189,29 +139,20 @@ def main() -> None:
     monster = TriadMonSTERFastVec(dim=EMBED_DIM, base=THETA_BASE, top_delta=TOP_DELTA)
     monster.unit = UNIT_SCALE / TOP_DELTA
 
-    panel_titles: list[str] = []
-    negpos_maps: list[np.ndarray] = []
+    key_positions = make_standard_positions(IMAGE_SIZE, KEY_T_VALUE)
+    transformed_keys = transform_positions(base_vector, key_positions, monster)
 
-    standard_positions = make_standard_positions(IMAGE_SIZE, KEY_T_VALUE)
-    standard_keys = transform_positions(base_vector, standard_positions, monster)
-    standard_query_base = standard_positions[query_index].copy()
+    query_position = key_positions[query_index].copy()
+    query_position[0] = QUERY_T_VALUE
+    transformed_query = transform_vector_at_position(base_vector, query_position, monster)
 
-    for query_t in QUERY_T_VALUES:
-        query_position = standard_query_base.copy()
-        query_position[0] = query_t
-        transformed_query = transform_vector_at_position(base_vector, query_position, monster)
-        negpos_maps.append(score_transformed_vectors(transformed_query, standard_keys, ETA4_NEGPOS))
-        panel_titles.append(f"key t={KEY_T_VALUE:g}, q t={query_t:g}")
+    score_map = score_transformed_vectors(transformed_query, transformed_keys, ETA4_NEGPOS)
+    plot_grid(score_map, OUTPUT_PATH)
 
-    query_image = make_query_image(IMAGE_SIZE, QUERY_X, QUERY_Y, QUERY_ON_VALUE)
-    plot_grid(query_image, panel_titles, negpos_maps, OUTPUT_PATH)
-
-    print(f"Saved MonSTERs comparison grid to {OUTPUT_PATH}")
+    print(f"Saved single-grid MonSTER plot to {OUTPUT_PATH}")
     print(f"Key t value: {KEY_T_VALUE}")
-    print(f"Query t values: {QUERY_T_VALUES}")
-    print(f"Unit scale: {UNIT_SCALE:.6g} / top_delta")
-    print("All three MonSTER panels use standard centered (x, y, z=0) coordinates.")
-    print("The plot uses metric (-,+,+,+).")
+    print(f"Query t value: {QUERY_T_VALUE}")
+    print("The plot uses metric (-,+,+,+) with no titles or labels.")
 
 
 if __name__ == "__main__":

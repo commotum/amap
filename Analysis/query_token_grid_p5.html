@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Query Token Grid</title>
+    <style>
+      :root {
+        --paper: #f4f0e8;
+        --ink: #1f1b17;
+        --panel: #e4ddd0;
+        --grid: #c1b7a6;
+        --axis: #7f745f;
+        --query: #d94841;
+        --query-stroke: #7a1410;
+        --cell: #fbf8f2;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: linear-gradient(180deg, #f7f3eb 0%, #ece4d8 100%);
+        color: var(--ink);
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 28px 24px 40px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 2rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      p {
+        margin: 0 0 18px;
+        max-width: 60ch;
+        line-height: 1.45;
+      }
+
+      .frame {
+        display: grid;
+        grid-template-columns: minmax(320px, 1fr) 260px;
+        gap: 24px;
+        align-items: start;
+      }
+
+      .canvas-shell {
+        background: rgba(255, 255, 255, 0.45);
+        border: 1px solid rgba(31, 27, 23, 0.12);
+        border-radius: 20px;
+        padding: 18px;
+        box-shadow: 0 18px 40px rgba(74, 53, 34, 0.08);
+      }
+
+      #sketch {
+        display: flex;
+        justify-content: center;
+      }
+
+      .controls {
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(31, 27, 23, 0.12);
+        border-radius: 20px;
+        padding: 18px 18px 20px;
+        box-shadow: 0 18px 40px rgba(74, 53, 34, 0.08);
+      }
+
+      .control {
+        margin-bottom: 16px;
+      }
+
+      .control:last-child {
+        margin-bottom: 0;
+      }
+
+      label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        font-size: 0.95rem;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--query);
+      }
+
+      .readout {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(31, 27, 23, 0.12);
+        font-size: 1rem;
+        line-height: 1.5;
+      }
+
+      .note {
+        margin-top: 14px;
+        font-size: 0.9rem;
+        color: rgba(31, 27, 23, 0.78);
+      }
+
+      code {
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.92em;
+      }
+
+      @media (max-width: 820px) {
+        .frame {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Query Token Grid</h1>
+      <p>
+        Interactive p5.js grid for selecting a query token position. The coordinate range is
+        <code>-16..16</code> on both axes, so the visualization uses a <code>33x33</code> lattice.
+      </p>
+
+      <div class="frame">
+        <section class="canvas-shell">
+          <div id="sketch"></div>
+        </section>
+
+        <aside class="controls">
+          <div class="control">
+            <label for="x-slider">
+              <span>Query x</span>
+              <span id="x-value">0</span>
+            </label>
+            <input id="x-slider" type="range" min="-16" max="16" step="1" value="0" />
+          </div>
+
+          <div class="control">
+            <label for="y-slider">
+              <span>Query y</span>
+              <span id="y-value">0</span>
+            </label>
+            <input id="y-slider" type="range" min="-16" max="16" step="1" value="0" />
+          </div>
+
+          <div class="readout">
+            <div>Selected token: <code id="selected">(0, 0)</code></div>
+            <div>Grid size: <code>33x33</code></div>
+            <div>Origin: <code>(0, 0)</code> at the center</div>
+          </div>
+
+          <div class="note">
+            Click a cell to move the query directly. Sliders and canvas stay synchronized.
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const minCoord = -16;
+      const maxCoord = 16;
+      const gridSize = maxCoord - minCoord + 1;
+      const cellSize = 18;
+      const gutter = 46;
+      const canvasSize = gridSize * cellSize + gutter * 2;
+
+      const state = {
+        queryX: 0,
+        queryY: 0,
+      };
+      let sketchInstance = null;
+
+      const xSlider = document.getElementById("x-slider");
+      const ySlider = document.getElementById("y-slider");
+      const xValue = document.getElementById("x-value");
+      const yValue = document.getElementById("y-value");
+      const selected = document.getElementById("selected");
+
+      function updateReadout() {
+        xValue.textContent = String(state.queryX);
+        yValue.textContent = String(state.queryY);
+        selected.textContent = `(${state.queryX}, ${state.queryY})`;
+      }
+
+      function setQuery(x, y) {
+        state.queryX = Math.max(minCoord, Math.min(maxCoord, x));
+        state.queryY = Math.max(minCoord, Math.min(maxCoord, y));
+        xSlider.value = String(state.queryX);
+        ySlider.value = String(state.queryY);
+        updateReadout();
+      }
+
+      xSlider.addEventListener("input", () => {
+        setQuery(Number(xSlider.value), state.queryY);
+        if (sketchInstance) {
+          sketchInstance.redraw();
+        }
+      });
+
+      ySlider.addEventListener("input", () => {
+        setQuery(state.queryX, Number(ySlider.value));
+        if (sketchInstance) {
+          sketchInstance.redraw();
+        }
+      });
+
+      sketchInstance = new p5((p) => {
+        function xToScreen(x) {
+          return gutter + (x - minCoord) * cellSize;
+        }
+
+        function yToScreen(y) {
+          return gutter + (maxCoord - y) * cellSize;
+        }
+
+        function screenToCoord(px, py) {
+          const gridX = Math.floor((px - gutter) / cellSize);
+          const gridY = Math.floor((py - gutter) / cellSize);
+          if (gridX < 0 || gridX >= gridSize || gridY < 0 || gridY >= gridSize) {
+            return null;
+          }
+          return {
+            x: minCoord + gridX,
+            y: maxCoord - gridY,
+          };
+        }
+
+        p.setup = () => {
+          const canvas = p.createCanvas(canvasSize, canvasSize);
+          canvas.parent("sketch");
+          p.noLoop();
+          updateReadout();
+        };
+
+        p.draw = () => {
+          p.background("#e4ddd0");
+
+          p.push();
+          p.translate(gutter, gutter);
+          p.noStroke();
+          p.fill("#fbf8f2");
+          p.rect(0, 0, gridSize * cellSize, gridSize * cellSize, 10);
+
+          p.stroke("#c1b7a6");
+          p.strokeWeight(1);
+          for (let i = 0; i <= gridSize; i += 1) {
+            const offset = i * cellSize;
+            p.line(offset, 0, offset, gridSize * cellSize);
+            p.line(0, offset, gridSize * cellSize, offset);
+          }
+
+          const zeroColumn = -minCoord * cellSize;
+          const zeroRow = maxCoord * cellSize;
+          p.stroke("#7f745f");
+          p.strokeWeight(2);
+          p.line(zeroColumn, 0, zeroColumn, gridSize * cellSize);
+          p.line(0, zeroRow, gridSize * cellSize, zeroRow);
+          p.pop();
+
+          p.push();
+          p.textAlign(p.CENTER, p.CENTER);
+          p.textFont("Georgia");
+          p.textSize(12);
+          p.fill("#5b5247");
+          p.noStroke();
+
+          for (let x = minCoord; x <= maxCoord; x += 4) {
+            const cx = xToScreen(x) + cellSize * 0.5;
+            p.text(String(x), cx, gutter - 18);
+            p.text(String(x), cx, canvasSize - gutter + 18);
+          }
+
+          for (let y = minCoord; y <= maxCoord; y += 4) {
+            const cy = yToScreen(y) + cellSize * 0.5;
+            p.text(String(y), gutter - 22, cy);
+            p.text(String(y), canvasSize - gutter + 22, cy);
+          }
+
+          p.textSize(14);
+          p.text("x", canvasSize * 0.5, 18);
+          p.text("y", 18, canvasSize * 0.5);
+          p.pop();
+
+          const queryX = xToScreen(state.queryX);
+          const queryY = yToScreen(state.queryY);
+          p.push();
+          p.stroke("#7a1410");
+          p.strokeWeight(2.5);
+          p.fill("#d94841");
+          p.rect(queryX + 1, queryY + 1, cellSize - 2, cellSize - 2, 4);
+          p.pop();
+        };
+
+        p.mousePressed = () => {
+          const coord = screenToCoord(p.mouseX, p.mouseY);
+          if (!coord) {
+            return;
+          }
+          setQuery(coord.x, coord.y);
+          p.redraw();
+        };
+      });
+    </script>
+  </body>
+</html>
