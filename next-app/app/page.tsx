@@ -1,6 +1,8 @@
 "use client"
 
+import { PanelRightOpen } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
 import Controller from "@/components/controller"
 import {
   clampToGridCoordinate,
@@ -27,6 +29,8 @@ function cyclePreset(
 
 export default function Page() {
   const [isOrtho, setIsOrtho] = useState(false)
+  const [isControllerCollapsed, setIsControllerCollapsed] = useState(false)
+  const [resetViewKey, setResetViewKey] = useState(0)
   const [gridValue, setGridValue] = useState(25)
   const [dimValue, setDimValue] = useState(384)
   const [thetaValue, setThetaValue] = useState(16)
@@ -55,6 +59,7 @@ export default function Page() {
       <MinkowskiViewer
         gridValue={gridValue}
         isOrtho={isOrtho}
+        resetViewKey={resetViewKey}
         dimValue={dimValue}
         thetaValue={thetaValue}
         phiValue={phiValue}
@@ -72,48 +77,66 @@ export default function Page() {
         </div>
 
         <div className="pointer-events-auto absolute top-4 right-4 z-10">
-          <Controller
-            isOrtho={isOrtho}
-            onOrthoChange={setIsOrtho}
-            gridValue={gridValue}
-            dimValue={dimValue}
-            thetaValue={thetaValue}
-            phiValue={phiValue}
-            extentValue={extentValue}
-            etaValue={etaValue}
-            tValue={tValue}
-            xValue={xValue}
-            yValue={yValue}
-            queryMin={queryRange.min}
-            queryMax={queryRange.max}
-            onGridPrevious={() => updateGridValue(-1)}
-            onGridNext={() => updateGridValue(1)}
-            onDimPrevious={() =>
-              setDimValue((current) => cyclePreset(DIM_PRESETS, current, -1))
-            }
-            onDimNext={() =>
-              setDimValue((current) => cyclePreset(DIM_PRESETS, current, 1))
-            }
-            onThetaPrevious={() =>
-              setThetaValue((current) =>
-                cyclePreset(THETA_PRESETS, current, -1)
-              )
-            }
-            onThetaNext={() =>
-              setThetaValue((current) => cyclePreset(THETA_PRESETS, current, 1))
-            }
-            onPhiPrevious={() =>
-              setPhiValue((current) => cyclePreset(PHI_PRESETS, current, -1))
-            }
-            onPhiNext={() =>
-              setPhiValue((current) => cyclePreset(PHI_PRESETS, current, 1))
-            }
-            onExtentChange={setExtentValue}
-            onEtaChange={setEtaValue}
-            onTChange={setTValue}
-            onXChange={setXValue}
-            onYChange={setYValue}
-          />
+          {isControllerCollapsed ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="border-white/10 bg-slate-950/72 text-slate-50 shadow-2xl backdrop-blur-xl hover:bg-slate-900"
+              onClick={() => setIsControllerCollapsed(false)}
+              aria-label="Expand controller"
+              title="Expand controller"
+            >
+              <PanelRightOpen />
+            </Button>
+          ) : (
+            <Controller
+              isOrtho={isOrtho}
+              onResetView={() => setResetViewKey((current) => current + 1)}
+              onCollapse={() => setIsControllerCollapsed(true)}
+              onOrthoChange={setIsOrtho}
+              gridValue={gridValue}
+              dimValue={dimValue}
+              thetaValue={thetaValue}
+              phiValue={phiValue}
+              extentValue={extentValue}
+              etaValue={etaValue}
+              tValue={tValue}
+              xValue={xValue}
+              yValue={yValue}
+              queryMin={queryRange.min}
+              queryMax={queryRange.max}
+              onGridPrevious={() => updateGridValue(-1)}
+              onGridNext={() => updateGridValue(1)}
+              onDimPrevious={() =>
+                setDimValue((current) => cyclePreset(DIM_PRESETS, current, -1))
+              }
+              onDimNext={() =>
+                setDimValue((current) => cyclePreset(DIM_PRESETS, current, 1))
+              }
+              onThetaPrevious={() =>
+                setThetaValue((current) =>
+                  cyclePreset(THETA_PRESETS, current, -1)
+                )
+              }
+              onThetaNext={() =>
+                setThetaValue((current) =>
+                  cyclePreset(THETA_PRESETS, current, 1)
+                )
+              }
+              onPhiPrevious={() =>
+                setPhiValue((current) => cyclePreset(PHI_PRESETS, current, -1))
+              }
+              onPhiNext={() =>
+                setPhiValue((current) => cyclePreset(PHI_PRESETS, current, 1))
+              }
+              onExtentChange={setExtentValue}
+              onEtaChange={setEtaValue}
+              onTChange={setTValue}
+              onXChange={setXValue}
+              onYChange={setYValue}
+            />
+          )}
         </div>
       </div>
     </main>

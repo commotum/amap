@@ -13,6 +13,7 @@ import type { MinkowskiControls } from "@/components/types"
 
 interface MinkowskiViewerProps extends MinkowskiControls {
   isOrtho: boolean
+  resetViewKey: number
 }
 
 interface SketchScene {
@@ -81,6 +82,7 @@ function drawHeatmapGrid(p: p5, scene: SketchScene) {
 export default function MinkowskiViewer({
   gridValue,
   isOrtho,
+  resetViewKey,
   dimValue,
   thetaValue,
   phiValue,
@@ -211,7 +213,7 @@ export default function MinkowskiViewer({
       sketchRef.current?.remove()
       sketchRef.current = null
     }
-  }, [isOrtho])
+  }, [isOrtho, resetViewKey])
 
   return <div ref={hostRef} className="absolute inset-0" />
 }

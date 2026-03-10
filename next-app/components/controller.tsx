@@ -1,4 +1,9 @@
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import {
+  ChevronLeft,
+  ChevronRight,
+  LocateFixed,
+  PanelRightClose,
+} from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -10,6 +15,8 @@ import type { EtaSignature } from "@/components/types"
 
 interface ControllerProps {
   isOrtho: boolean
+  onResetView: () => void
+  onCollapse: () => void
   onOrthoChange: (checked: boolean) => void
   gridValue: number
   dimValue: number
@@ -39,6 +46,8 @@ interface ControllerProps {
 
 export default function Controller({
   isOrtho,
+  onResetView,
+  onCollapse,
   onOrthoChange,
   gridValue,
   dimValue,
@@ -66,17 +75,33 @@ export default function Controller({
   onYChange,
 }: ControllerProps) {
   return (
-    <Card className="max-h-[calc(100svh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-auto border-white/10 bg-slate-950/72 text-slate-50 shadow-2xl backdrop-blur-xl">
-      <div className="flex flex-col gap-5 p-4">
-        <div className="space-y-1 px-1">
-          <p className="text-xs font-medium tracking-[0.22em] text-slate-400 uppercase">
-            Viewer
-          </p>
-          <h2 className="text-lg font-semibold tracking-tight">
-            Minkowski Map
-          </h2>
-        </div>
+    <Card className="relative max-h-[calc(100svh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-auto border-white/10 bg-slate-950/72 text-slate-50 shadow-2xl backdrop-blur-xl">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="border-white/10 bg-slate-950/60 hover:bg-slate-900"
+          onClick={onResetView}
+          aria-label="Reset view"
+          title="Reset view"
+        >
+          <LocateFixed />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="border-white/10 bg-slate-950/60 hover:bg-slate-900"
+          onClick={onCollapse}
+          aria-label="Collapse controller"
+          title="Collapse controller"
+        >
+          <PanelRightClose />
+        </Button>
+      </div>
 
+      <div className="flex flex-col gap-5 p-4 pt-14">
         <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
           <Label
             htmlFor="ortho-view"
@@ -252,16 +277,16 @@ export default function Controller({
               onValueChange={(value) => onEtaChange(value as EtaSignature)}
               className="w-full"
             >
-              <TabsList className="grid h-auto w-full grid-cols-2 border border-white/10 bg-slate-950/70 p-1">
+              <TabsList className="w-full border border-white/10 bg-slate-950/70">
                 <TabsTrigger
                   value="negative-positive"
-                  className="px-2 py-1.5 text-xs"
+                  className="px-2 text-xs leading-none"
                 >
                   eta = (-,+,+,+)
                 </TabsTrigger>
                 <TabsTrigger
                   value="positive-negative"
-                  className="px-2 py-1.5 text-xs"
+                  className="px-2 text-xs leading-none"
                 >
                   eta = (+,-,-,-)
                 </TabsTrigger>
