@@ -51,6 +51,8 @@ ABS_T_LEVELS = [0.0, 4.0, 8.0]
 CONTENT_BIN_NAMES = ["identical", "positive_5pct", "middle_90pct", "negative_5pct"]
 METRIC_NAMES = ["(+,-,-,-)", "(-,+,+,+)"]
 SQRT_SCALE = np.sqrt(CONTENT_DIM)
+ETA4_NEGPOS = ETA4
+ETA4_POSNEG = -ETA4_NEGPOS
 
 
 @dataclass(frozen=True)
@@ -215,7 +217,7 @@ def sample_family_scores(
         tables = build_tables_batch(relative_positions, monster)
         transformed_keys = apply_monster_triad_fast_batch(key_vectors, tables)
 
-        scores_posneg = metric_dot_batch(query_vectors, transformed_keys, ETA4) / SQRT_SCALE
+        scores_posneg = metric_dot_batch(query_vectors, transformed_keys, ETA4_POSNEG) / SQRT_SCALE
         score_parts.append(scores_posneg.astype(np.float32))
         distance_parts.append(np.linalg.norm(key_xyz - query_xyz, axis=1).astype(np.float32))
         query_t_parts.append(query_t.astype(np.float32))
@@ -349,8 +351,8 @@ def verify_absolute_relative_property(
     key_abs = apply_monster_triad_fast_batch(key_vectors, build_tables_batch(key_positions, monster))
     key_rel = apply_monster_triad_fast_batch(key_vectors, build_tables_batch(relative_positions, monster))
 
-    lhs_posneg = metric_dot_batch(query_abs, key_abs, ETA4) / SQRT_SCALE
-    rhs_posneg = metric_dot_batch(query_vectors, key_rel, ETA4) / SQRT_SCALE
+    lhs_posneg = metric_dot_batch(query_abs, key_abs, ETA4_POSNEG) / SQRT_SCALE
+    rhs_posneg = metric_dot_batch(query_vectors, key_rel, ETA4_POSNEG) / SQRT_SCALE
     error_posneg = np.abs(lhs_posneg - rhs_posneg)
 
     lhs_negpos = -lhs_posneg

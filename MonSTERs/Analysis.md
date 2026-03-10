@@ -30,7 +30,7 @@ The most critical principle of RoPE is that an operation applied using **absolut
 
 #### 1.1.2 Group-Theoretic Foundation
 
-RoPE works because the rotation matrices form the group SO(2), and the rotation angle is linear with the position. Your implementation correctly identifies that the same principle applies to the **Lorentz group SO(1,3)**, which governs rotations and boosts in 4D spacetime.
+RoPE works because the rotation matrices form the group SO(2), and the rotation angle is linear with the position. Your implementation correctly identifies that the same principle applies to the **Lorentz group SO(3,1)**, which governs rotations and boosts in 4D spacetime.
 
 - Your transformations are composed of boosts (hyperbolic rotations) and spatial rotations. These are the generators of the Lorentz group.
 - Your angles (`thx`, `thy`, `thz`) and rapidity (`phi`) are linear functions of the position vector `s`, mirroring how RoPE's angle is a linear function of the position index `m`. This ensures the group property $L(s_1)L(s_2) = L(s_1 + s_2)$ holds, which is the mathematical foundation for the absolute-to-relative identity.

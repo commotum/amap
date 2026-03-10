@@ -1,5 +1,5 @@
 To extend Rotary Position Embedding (RoPE) to 4-dimensional spacetime using the geometric algebra 
-Spacetime Algebra, or STA, which is the Clifford algebra Cl(1,3) with Minkowski signature
+Spacetime Algebra, or STA, which is the Clifford algebra Cl(3,1) with Minkowski signature
 we can leverage the algebraic structure to generalize the rotational encoding while incorporating 
 the indefinite metric, light cones, and causality. This builds on RoPE's core idea—encoding 
 absolute positions such that inner products capture relative positions—but adapts it to positions 
@@ -17,8 +17,8 @@ Represent Embeddings and Positions in STA:
 
 Treating each 4D block of the embedding vector (e.g., for queries $ \mathbf{q} $ or keys $ \mathbf{k} $) 
 as a spacetime vector: $ v = v^0 \gamma_0 + v^1 \gamma_1 + v^2 \gamma_2 + v^3 \gamma_3 $, 
-$ \gamma_0^2 = +1 $ (timelike), $ \gamma_i^2 = -1 $ (spacelike for $ i=1,2,3 $). The squared norm 
-$ v^2 = (v^0)^2 - (v^1)^2 - (v^2)^2 - (v^3)^2 $ can be positive, negative, or zero, reflecting causality.
+$ \gamma_0^2 = -1 $ (timelike), $ \gamma_i^2 = +1 $ (spacelike for $ i=1,2,3 $). The squared norm 
+$ v^2 = -(v^0)^2 + (v^1)^2 + (v^2)^2 + (v^3)^2 $ can be positive, negative, or zero, reflecting causality.
 
 Positions are also 4D spacetime vectors $ p $. Normalize units so $ c=1 $.
 
