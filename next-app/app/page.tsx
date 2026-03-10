@@ -12,8 +12,8 @@ import {
 import MinkowskiViewer from "@/components/minkowski-viewer"
 import type { EtaSignature } from "@/components/types"
 
-const GRID_PRESETS = [4, 8, 16, 32, 64, 128, 256, 512]
-const DIM_PRESETS = [96, 192, 384, 768]
+const GRID_PRESETS = [4, 8, 16, 32, 64, 128]
+const DIM_PRESETS = [96, 192, 384, 768, 1536, 3072, 6144]
 const THETA_PRESETS = [1000, 5000, 10000, 20000, 30000, 45000, 60000, 80000, 100000]
 const PHI_PRESETS = [1000, 5000, 10000, 20000, 30000, 45000, 60000, 80000, 100000]
 const INITIAL_GRID_VALUE = 32

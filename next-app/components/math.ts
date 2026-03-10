@@ -57,6 +57,13 @@ export interface GridCoordinateRange {
   readonly max: number
 }
 
+const EMBEDDING_CACHE = new Map<number, Float64Array>()
+const INV_FREQ_CACHE = new Map<string, Float64Array>()
+const METRIC_CACHE = new Map<
+  number,
+  Record<EtaSignature, MonsterMetricCoefficients>
+>()
+
 function roundCoordinate(value: number) {
   return Number(value.toFixed(6))
 }
@@ -158,6 +165,31 @@ function createInvFreq(numFreq: number, baseValue: number) {
   return invFreq
 }
 
+function getCachedEmbedding(dimValue: number) {
+  const cachedEmbedding = EMBEDDING_CACHE.get(dimValue)
+
+  if (cachedEmbedding) {
+    return cachedEmbedding
+  }
+
+  const embedding = createRandomEmbedding(dimValue, RANDOM_SEED)
+  EMBEDDING_CACHE.set(dimValue, embedding)
+  return embedding
+}
+
+function getCachedInvFreq(numFreq: number, baseValue: number) {
+  const cacheKey = `${numFreq}:${baseValue}`
+  const cachedInvFreq = INV_FREQ_CACHE.get(cacheKey)
+
+  if (cachedInvFreq) {
+    return cachedInvFreq
+  }
+
+  const invFreq = createInvFreq(numFreq, baseValue)
+  INV_FREQ_CACHE.set(cacheKey, invFreq)
+  return invFreq
+}
+
 function buildMetricCoefficients(
   blocks: Float64Array,
   numFreq: number,
@@ -207,6 +239,31 @@ function buildMetricCoefficients(
     y,
     constant,
   }
+}
+
+function getCachedMetrics(dimValue: number, numFreq: number) {
+  const cachedMetrics = METRIC_CACHE.get(dimValue)
+
+  if (cachedMetrics) {
+    return cachedMetrics
+  }
+
+  const embedding = getCachedEmbedding(dimValue)
+  const metrics = {
+    "negative-positive": buildMetricCoefficients(
+      embedding,
+      numFreq,
+      [-1, 1, 1, 1]
+    ),
+    "positive-negative": buildMetricCoefficients(
+      embedding,
+      numFreq,
+      [1, -1, -1, -1]
+    ),
+  } satisfies Record<EtaSignature, MonsterMetricCoefficients>
+
+  METRIC_CACHE.set(dimValue, metrics)
+  return metrics
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -260,26 +317,14 @@ export function buildMonsterContext({
   }
 
   const numFreq = dimValue / MONSTER_SLICE
-  const embedding = createRandomEmbedding(dimValue, RANDOM_SEED)
 
   return {
     gridValue,
     dimValue,
     unit: extentValue / gridValue,
-    spatialInvFreq: createInvFreq(numFreq, thetaValue),
-    temporalInvFreq: createInvFreq(numFreq, phiValue),
-    metrics: {
-      "negative-positive": buildMetricCoefficients(
-        embedding,
-        numFreq,
-        [-1, 1, 1, 1]
-      ),
-      "positive-negative": buildMetricCoefficients(
-        embedding,
-        numFreq,
-        [1, -1, -1, -1]
-      ),
-    },
+    spatialInvFreq: getCachedInvFreq(numFreq, thetaValue),
+    temporalInvFreq: getCachedInvFreq(numFreq, phiValue),
+    metrics: getCachedMetrics(dimValue, numFreq),
   }
 }
 
