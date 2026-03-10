@@ -1,7 +1,5 @@
-import type { EtaSignature } from '@/components/MonSTERs/Minkowski/types'
+import type { EtaSignature } from "@/components/types"
 
-export const CANVAS_SIZE = 512
-export const MAX_CELL_SIZE = 32
 const MONSTER_SLICE = 12
 const RANDOM_SEED = 0
 const VIRIDIS_STOPS: ReadonlyArray<readonly [number, number, number]> = [
@@ -160,16 +158,16 @@ function buildMetricCoefficients(
     const zz = blocks[offset + 11]
 
     time[frequencyIndex] =
-      (m0 * xt * xt) +
-      (m1 * xx * xx) +
-      (m0 * yt * yt) +
-      (m2 * yy * yy) +
-      (m0 * zt * zt) +
-      (m3 * zz * zz)
+      m0 * xt * xt +
+      m1 * xx * xx +
+      m0 * yt * yt +
+      m2 * yy * yy +
+      m0 * zt * zt +
+      m3 * zz * zz
 
-    x[frequencyIndex] = (m2 * xy * xy) + (m3 * xz * xz)
-    y[frequencyIndex] = (m1 * yx * yx) + (m3 * yz * yz)
-    constant += (m1 * zx * zx) + (m2 * zy * zy)
+    x[frequencyIndex] = m2 * xy * xy + m3 * xz * xz
+    y[frequencyIndex] = m1 * yx * yx + m3 * yz * yz
+    constant += m1 * zx * zx + m2 * zy * zy
   }
 
   return {
@@ -189,16 +187,17 @@ function safeCosh(value: number) {
   return Math.cosh(cappedValue)
 }
 
-export function getCellSize(gridValue: number) {
-  return Math.max(1, Math.min(MAX_CELL_SIZE, Math.floor(CANVAS_SIZE / gridValue)))
-}
-
 export function getGridCoordinateRange(gridValue: number): GridCoordinateRange {
   const min = -Math.floor(gridValue / 2)
   return {
     min,
     max: min + gridValue - 1,
   }
+}
+
+export function clampToGridCoordinate(value: number, gridValue: number) {
+  const coordinateRange = getGridCoordinateRange(gridValue)
+  return clamp(value, coordinateRange.min, coordinateRange.max)
 }
 
 export function buildMonsterContext({
@@ -209,7 +208,9 @@ export function buildMonsterContext({
   extentValue,
 }: BuildMonsterContextInput): MonsterContext {
   if (dimValue % MONSTER_SLICE !== 0) {
-    throw new Error(`dimValue must be divisible by ${MONSTER_SLICE}. Received ${dimValue}.`)
+    throw new Error(
+      `dimValue must be divisible by ${MONSTER_SLICE}. Received ${dimValue}.`
+    )
   }
 
   const numFreq = dimValue / MONSTER_SLICE
@@ -222,8 +223,16 @@ export function buildMonsterContext({
     spatialInvFreq: createInvFreq(numFreq, thetaValue),
     temporalInvFreq: createInvFreq(numFreq, phiValue),
     metrics: {
-      'negative-positive': buildMetricCoefficients(embedding, numFreq, [-1, 1, 1, 1]),
-      'positive-negative': buildMetricCoefficients(embedding, numFreq, [1, -1, -1, -1]),
+      "negative-positive": buildMetricCoefficients(
+        embedding,
+        numFreq,
+        [-1, 1, 1, 1]
+      ),
+      "positive-negative": buildMetricCoefficients(
+        embedding,
+        numFreq,
+        [1, -1, -1, -1]
+      ),
     },
   }
 }
@@ -235,8 +244,8 @@ export function computeHeatmap(
   const { gridValue, dimValue, unit, spatialInvFreq, temporalInvFreq } = context
   const coefficients = context.metrics[etaValue]
   const coordinateRange = getGridCoordinateRange(gridValue)
-  const queryX = clamp(xValue, coordinateRange.min, coordinateRange.max)
-  const queryY = clamp(yValue, coordinateRange.min, coordinateRange.max)
+  const queryX = clampToGridCoordinate(xValue, gridValue)
+  const queryY = clampToGridCoordinate(yValue, gridValue)
   const timeDelta = -tValue
   const scoreOffset = coefficients.constant
   const xScores = new Float64Array(gridValue)
@@ -245,17 +254,25 @@ export function computeHeatmap(
   const scores = new Float32Array(gridValue * gridValue)
   let timeScore = 0
 
-  for (let frequencyIndex = 0; frequencyIndex < coefficients.time.length; frequencyIndex += 1) {
+  for (
+    let frequencyIndex = 0;
+    frequencyIndex < coefficients.time.length;
+    frequencyIndex += 1
+  ) {
     timeScore +=
       coefficients.time[frequencyIndex] *
       safeCosh(timeDelta * unit * temporalInvFreq[frequencyIndex])
   }
 
   for (let col = 0; col < gridValue; col += 1) {
-    const deltaX = (coordinateRange.min + col) - queryX
+    const deltaX = coordinateRange.min + col - queryX
     let xScore = 0
 
-    for (let frequencyIndex = 0; frequencyIndex < coefficients.x.length; frequencyIndex += 1) {
+    for (
+      let frequencyIndex = 0;
+      frequencyIndex < coefficients.x.length;
+      frequencyIndex += 1
+    ) {
       xScore +=
         coefficients.x[frequencyIndex] *
         Math.cos(deltaX * unit * spatialInvFreq[frequencyIndex])
@@ -265,10 +282,14 @@ export function computeHeatmap(
   }
 
   for (let row = 0; row < gridValue; row += 1) {
-    const deltaY = (coordinateRange.min + row) - queryY
+    const deltaY = coordinateRange.min + row - queryY
     let yScore = 0
 
-    for (let frequencyIndex = 0; frequencyIndex < coefficients.y.length; frequencyIndex += 1) {
+    for (
+      let frequencyIndex = 0;
+      frequencyIndex < coefficients.y.length;
+      frequencyIndex += 1
+    ) {
       yScore +=
         coefficients.y[frequencyIndex] *
         Math.cos(deltaY * unit * spatialInvFreq[frequencyIndex])
@@ -283,8 +304,9 @@ export function computeHeatmap(
 
   for (let row = 0; row < gridValue; row += 1) {
     for (let col = 0; col < gridValue; col += 1) {
-      const index = (row * gridValue) + col
-      const score = (timeScore + xScores[col] + yScores[row] + scoreOffset) / normalizer
+      const index = row * gridValue + col
+      const score =
+        (timeScore + xScores[col] + yScores[row] + scoreOffset) / normalizer
 
       scores[index] = score
       minScore = Math.min(minScore, score)
@@ -320,8 +342,8 @@ export function getViridisColor(value: number): [number, number, number] {
   const upper = VIRIDIS_STOPS[upperIndex]
 
   return [
-    Math.round(lower[0] + ((upper[0] - lower[0]) * interpolation)),
-    Math.round(lower[1] + ((upper[1] - lower[1]) * interpolation)),
-    Math.round(lower[2] + ((upper[2] - lower[2]) * interpolation)),
+    Math.round(lower[0] + (upper[0] - lower[0]) * interpolation),
+    Math.round(lower[1] + (upper[1] - lower[1]) * interpolation),
+    Math.round(lower[2] + (upper[2] - lower[2]) * interpolation),
   ]
 }

@@ -1,4 +1,4 @@
-export type EtaSignature = 'negative-positive' | 'positive-negative'
+export type EtaSignature = "negative-positive" | "positive-negative"
 
 export interface MinkowskiControls {
   gridValue: number
