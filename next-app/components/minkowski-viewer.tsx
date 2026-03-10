@@ -152,14 +152,20 @@ export default function MinkowskiViewer({
 
       const resizeSketch = (instance: p5) => {
         const { width, height } = readHostSize(hostRef.current)
+
+        if (width <= 0 || height <= 0) {
+          return
+        }
+
         instance.resizeCanvas(width, height, true)
       }
 
-      const instance = new P5((p: p5) => {
+      const sketch = (p: p5) => {
         p.setup = () => {
-          const { width, height } = readHostSize(hostRef.current)
+          const { width, height } = readHostSize(host)
           const canvas = p.createCanvas(width, height, p.WEBGL)
 
+          canvas.parent(host)
           canvas.elt.style.display = "block"
           canvas.elt.style.width = "100%"
           canvas.elt.style.height = "100%"
@@ -174,8 +180,6 @@ export default function MinkowskiViewer({
 
           if (activeScene.isOrtho) {
             p.ortho()
-          } else {
-            p.perspective()
           }
 
           p.background(0)
@@ -187,7 +191,9 @@ export default function MinkowskiViewer({
         p.windowResized = () => {
           resizeSketch(p)
         }
-      }, host)
+      }
+
+      const instance = new P5(sketch, host)
 
       sketchRef.current = instance
 
@@ -195,7 +201,6 @@ export default function MinkowskiViewer({
         resizeSketch(instance)
       })
       resizeObserver.observe(host)
-      resizeSketch(instance)
     }
 
     void mountSketch()
@@ -206,7 +211,7 @@ export default function MinkowskiViewer({
       sketchRef.current?.remove()
       sketchRef.current = null
     }
-  }, [])
+  }, [isOrtho])
 
   return <div ref={hostRef} className="absolute inset-0" />
 }
