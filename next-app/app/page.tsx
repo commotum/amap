@@ -14,8 +14,8 @@ import type { EtaSignature } from "@/components/types"
 
 const GRID_PRESETS = [4, 8, 16, 32, 64, 128, 256, 512]
 const DIM_PRESETS = [96, 192, 384, 768]
-const THETA_PRESETS = [2, 4, 8, 16, 32, 64]
-const PHI_PRESETS = [2, 4, 8, 16, 32, 64]
+const THETA_PRESETS = [1000, 5000, 10000, 20000, 30000, 45000, 60000, 80000, 100000]
+const PHI_PRESETS = [1000, 5000, 10000, 20000, 30000, 45000, 60000, 80000, 100000]
 const INITIAL_GRID_VALUE = 32
 const DEFAULT_QUERY_BY_GRID: Record<number, { x: number; y: number }> = {
   4: { x: -0.5, y: 0.5 },
@@ -63,9 +63,9 @@ export default function Page() {
   const [resetViewKey, setResetViewKey] = useState(0)
   const [gridValue, setGridValue] = useState(INITIAL_GRID_VALUE)
   const [dimValue, setDimValue] = useState(384)
-  const [thetaValue, setThetaValue] = useState(16)
-  const [phiValue, setPhiValue] = useState(16)
-  const [extentValue, setExtentValue] = useState(27)
+  const [thetaValue, setThetaValue] = useState(10000)
+  const [phiValue, setPhiValue] = useState(10000)
+  const [extentValue, setExtentValue] = useState(6.28)
   const [etaValue, setEtaValue] = useState<EtaSignature>("negative-positive")
   const [tValue, setTValue] = useState(0)
   const [xValue, setXValue] = useState(() => getDefaultQuery(INITIAL_GRID_VALUE).x)

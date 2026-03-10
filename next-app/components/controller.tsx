@@ -184,20 +184,20 @@ export default function Controller({
               variant="outline"
               size="icon"
               className="absolute left-0 border-white/10 bg-slate-950/60 hover:bg-slate-900"
-              aria-label="Previous theta preset"
+              aria-label="Previous θ preset"
               onClick={onThetaPrevious}
             >
               <ChevronLeft />
             </Button>
             <div className="rounded-md border border-white/10 px-3 py-1.5 text-sm font-semibold">
-              theta = {thetaValue.toLocaleString("en-US")}
+              θ = {thetaValue.toLocaleString("en-US")}
             </div>
             <Button
               type="button"
               variant="outline"
               size="icon"
               className="absolute right-0 border-white/10 bg-slate-950/60 hover:bg-slate-900"
-              aria-label="Next theta preset"
+              aria-label="Next θ preset"
               onClick={onThetaNext}
             >
               <ChevronRight />
@@ -210,20 +210,20 @@ export default function Controller({
               variant="outline"
               size="icon"
               className="absolute left-0 border-white/10 bg-slate-950/60 hover:bg-slate-900"
-              aria-label="Previous phi preset"
+              aria-label="Previous ϕ preset"
               onClick={onPhiPrevious}
             >
               <ChevronLeft />
             </Button>
             <div className="rounded-md border border-white/10 px-3 py-1.5 text-sm font-semibold">
-              phi = {phiValue.toLocaleString("en-US")}
+              ϕ = {phiValue.toLocaleString("en-US")}
             </div>
             <Button
               type="button"
               variant="outline"
               size="icon"
               className="absolute right-0 border-white/10 bg-slate-950/60 hover:bg-slate-900"
-              aria-label="Next phi preset"
+              aria-label="Next ϕ preset"
               onClick={onPhiNext}
             >
               <ChevronRight />
