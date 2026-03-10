@@ -22,9 +22,15 @@ interface SketchScene {
   isOrtho: boolean
   normalizedScores: Float32Array
   rangeMin: number
-  rangeMax: number
   queryX: number
   queryY: number
+}
+
+interface OrbitPointerState extends p5 {
+  mouseIsPressed: boolean
+  movedX: number
+  movedY: number
+  touches: Array<{ id: number; x: number; y: number }>
 }
 
 function readHostSize(host: HTMLDivElement | null) {
@@ -59,7 +65,7 @@ function drawHeatmapGrid(p: p5, scene: SketchScene) {
   }
 
   const selectedCol = Math.round(scene.queryX - scene.rangeMin)
-  const selectedRow = Math.round(scene.rangeMax - scene.queryY)
+  const selectedRow = Math.round(scene.queryY - scene.rangeMin)
 
   if (
     selectedCol >= 0 &&
@@ -79,6 +85,31 @@ function drawHeatmapGrid(p: p5, scene: SketchScene) {
     p.box(cubeSize * 1.1)
     p.pop()
   }
+}
+
+function applyOrbitControl(p: p5, orbitEnabled: boolean) {
+  if (orbitEnabled) {
+    p.orbitControl(1, 1, 1, { freeRotation: true })
+    return
+  }
+
+  const pointerState = p as OrbitPointerState
+  const previousMouseIsPressed = pointerState.mouseIsPressed
+  const previousMovedX = pointerState.movedX
+  const previousMovedY = pointerState.movedY
+  const previousTouches = pointerState.touches
+
+  pointerState.mouseIsPressed = false
+  pointerState.movedX = 0
+  pointerState.movedY = 0
+  pointerState.touches = []
+
+  p.orbitControl(1, 1, 1, { freeRotation: true })
+
+  pointerState.mouseIsPressed = previousMouseIsPressed
+  pointerState.movedX = previousMovedX
+  pointerState.movedY = previousMovedY
+  pointerState.touches = previousTouches
 }
 
 export default function MinkowskiViewer({
@@ -118,7 +149,6 @@ export default function MinkowskiViewer({
       isOrtho,
       normalizedScores: heatmap.normalizedScores,
       rangeMin: coordinateRange.min,
-      rangeMax: coordinateRange.max,
       queryX: clampToGridCoordinate(xValue, gridValue),
       queryY: clampToGridCoordinate(yValue, gridValue),
     }
@@ -194,17 +224,7 @@ export default function MinkowskiViewer({
           }
 
           p.background(0)
-
-          if (orbitEnabledRef.current) {
-            p.orbitControl(1, 1, 1, { freeRotation: true })
-          } else {
-            const pointerState = p as p5 & { _mouseWheelDeltaY?: number }
-
-            if (typeof pointerState._mouseWheelDeltaY === "number") {
-              pointerState._mouseWheelDeltaY = 0
-            }
-          }
-
+          applyOrbitControl(p, orbitEnabledRef.current)
           p.scale(1, -1, 1)
           drawHeatmapGrid(p, activeScene)
         }

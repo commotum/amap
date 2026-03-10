@@ -328,7 +328,7 @@ export function computeHeatmap(
   }
 
   for (let row = 0; row < gridValue; row += 1) {
-    const deltaY = coordinateRange.max - row - queryY
+    const deltaY = coordinateRange.min + row - queryY
     let yScore = 0
 
     for (
