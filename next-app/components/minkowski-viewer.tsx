@@ -21,6 +21,7 @@ interface SketchScene {
   isOrtho: boolean
   normalizedScores: Float32Array
   rangeMin: number
+  rangeMax: number
   queryX: number
   queryY: number
 }
@@ -56,8 +57,8 @@ function drawHeatmapGrid(p: p5, scene: SketchScene) {
     }
   }
 
-  const selectedCol = scene.queryX - scene.rangeMin
-  const selectedRow = scene.queryY - scene.rangeMin
+  const selectedCol = Math.round(scene.queryX - scene.rangeMin)
+  const selectedRow = Math.round(scene.rangeMax - scene.queryY)
 
   if (
     selectedCol >= 0 &&
@@ -115,6 +116,7 @@ export default function MinkowskiViewer({
       isOrtho,
       normalizedScores: heatmap.normalizedScores,
       rangeMin: coordinateRange.min,
+      rangeMax: coordinateRange.max,
       queryX: clampToGridCoordinate(xValue, gridValue),
       queryY: clampToGridCoordinate(yValue, gridValue),
     }

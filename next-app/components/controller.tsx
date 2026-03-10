@@ -29,6 +29,7 @@ interface ControllerProps {
   yValue: number
   queryMin: number
   queryMax: number
+  queryStep: number
   onGridPrevious: () => void
   onGridNext: () => void
   onDimPrevious: () => void
@@ -60,6 +61,7 @@ export default function Controller({
   yValue,
   queryMin,
   queryMax,
+  queryStep,
   onGridPrevious,
   onGridNext,
   onDimPrevious,
@@ -74,6 +76,9 @@ export default function Controller({
   onXChange,
   onYChange,
 }: ControllerProps) {
+  const formatCoordinate = (value: number) =>
+    Number.isInteger(value) ? value.toString() : value.toFixed(1)
+
   return (
     <Card className="relative max-h-[calc(100svh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-auto border-white/10 bg-slate-950/72 text-slate-50 shadow-2xl backdrop-blur-xl">
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
@@ -301,7 +306,7 @@ export default function Controller({
               Query
             </p>
             <p className="text-sm text-slate-300">
-              x = {xValue}, y = {yValue}
+              x = {formatCoordinate(xValue)}, y = {formatCoordinate(yValue)}
             </p>
           </div>
 
@@ -309,13 +314,13 @@ export default function Controller({
             <div className="flex items-center justify-between text-xs tracking-[0.16em] text-slate-400 uppercase">
               <span>x</span>
               <span>
-                {queryMin} to {queryMax}
+                {formatCoordinate(queryMin)} to {formatCoordinate(queryMax)}
               </span>
             </div>
             <Slider
               min={queryMin}
               max={queryMax}
-              step={1}
+              step={queryStep}
               value={[xValue]}
               onValueChange={([value]) => onXChange(value ?? xValue)}
             />
@@ -325,13 +330,13 @@ export default function Controller({
             <div className="flex items-center justify-between text-xs tracking-[0.16em] text-slate-400 uppercase">
               <span>y</span>
               <span>
-                {queryMin} to {queryMax}
+                {formatCoordinate(queryMin)} to {formatCoordinate(queryMax)}
               </span>
             </div>
             <Slider
               min={queryMin}
               max={queryMax}
-              step={1}
+              step={queryStep}
               value={[yValue]}
               onValueChange={([value]) => onYChange(value ?? yValue)}
             />

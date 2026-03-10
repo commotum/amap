@@ -57,6 +57,37 @@ export interface GridCoordinateRange {
   readonly max: number
 }
 
+function roundCoordinate(value: number) {
+  return Number(value.toFixed(6))
+}
+
+function snapToLattice(value: number, min: number, max: number, step: number) {
+  const clampedValue = clamp(value, min, max)
+  const latticeOffset = (clampedValue - min) / step
+  const lower = roundCoordinate(min + Math.floor(latticeOffset) * step)
+  const upper = roundCoordinate(min + Math.ceil(latticeOffset) * step)
+  const lowerDistance = Math.abs(clampedValue - lower)
+  const upperDistance = Math.abs(upper - clampedValue)
+
+  if (lowerDistance < upperDistance) {
+    return lower
+  }
+
+  if (upperDistance < lowerDistance) {
+    return upper
+  }
+
+  if (Math.abs(upper) > Math.abs(lower)) {
+    return upper
+  }
+
+  if (Math.abs(lower) > Math.abs(upper)) {
+    return lower
+  }
+
+  return clampedValue >= 0 ? upper : lower
+}
+
 function createSeededRandom(seed: number) {
   let state = seed >>> 0
 
@@ -188,6 +219,15 @@ function safeCosh(value: number) {
 }
 
 export function getGridCoordinateRange(gridValue: number): GridCoordinateRange {
+  if (gridValue % 2 === 0) {
+    const halfGrid = gridValue / 2
+
+    return {
+      min: roundCoordinate(-halfGrid + 0.5),
+      max: roundCoordinate(halfGrid - 0.5),
+    }
+  }
+
   const min = -Math.floor(gridValue / 2)
   return {
     min,
@@ -195,9 +235,15 @@ export function getGridCoordinateRange(gridValue: number): GridCoordinateRange {
   }
 }
 
+export function getGridCoordinateStep() {
+  return 1
+}
+
 export function clampToGridCoordinate(value: number, gridValue: number) {
   const coordinateRange = getGridCoordinateRange(gridValue)
-  return clamp(value, coordinateRange.min, coordinateRange.max)
+  const step = getGridCoordinateStep()
+
+  return snapToLattice(value, coordinateRange.min, coordinateRange.max, step)
 }
 
 export function buildMonsterContext({
@@ -282,7 +328,7 @@ export function computeHeatmap(
   }
 
   for (let row = 0; row < gridValue; row += 1) {
-    const deltaY = coordinateRange.min + row - queryY
+    const deltaY = coordinateRange.max - row - queryY
     let yScore = 0
 
     for (
