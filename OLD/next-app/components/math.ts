@@ -1,7 +1,10 @@
 import type { EtaSignature } from "@/components/types"
 
 const MONSTER_SLICE = 12
-const RANDOM_SEED = 0
+const QUERY_RANDOM_SEED = 0
+const KEY_RANDOM_SEED = 1
+const SPATIAL_UNIT = 1
+const TEMPORAL_UNIT = 0.005
 const VIRIDIS_STOPS: ReadonlyArray<readonly [number, number, number]> = [
   [68, 1, 84],
   [71, 44, 122],
@@ -15,16 +18,20 @@ const VIRIDIS_STOPS: ReadonlyArray<readonly [number, number, number]> = [
 ]
 
 interface MonsterMetricCoefficients {
-  readonly time: Float64Array
-  readonly x: Float64Array
-  readonly y: Float64Array
+  readonly timeCosh: Float64Array
+  readonly timeSinh: Float64Array
+  readonly xCos: Float64Array
+  readonly xSin: Float64Array
+  readonly yCos: Float64Array
+  readonly ySin: Float64Array
   readonly constant: number
 }
 
 export interface MonsterContext {
   readonly gridValue: number
   readonly dimValue: number
-  readonly unit: number
+  readonly spatialUnit: number
+  readonly temporalUnit: number
   readonly spatialInvFreq: Float64Array
   readonly temporalInvFreq: Float64Array
   readonly metrics: Record<EtaSignature, MonsterMetricCoefficients>
@@ -57,7 +64,7 @@ export interface GridCoordinateRange {
   readonly max: number
 }
 
-const EMBEDDING_CACHE = new Map<number, Float64Array>()
+const EMBEDDING_CACHE = new Map<string, Float64Array>()
 const INV_FREQ_CACHE = new Map<string, Float64Array>()
 const METRIC_CACHE = new Map<
   number,
@@ -165,15 +172,16 @@ function createInvFreq(numFreq: number, baseValue: number) {
   return invFreq
 }
 
-function getCachedEmbedding(dimValue: number) {
-  const cachedEmbedding = EMBEDDING_CACHE.get(dimValue)
+function getCachedEmbedding(dimValue: number, seed: number) {
+  const cacheKey = `${dimValue}:${seed}`
+  const cachedEmbedding = EMBEDDING_CACHE.get(cacheKey)
 
   if (cachedEmbedding) {
     return cachedEmbedding
   }
 
-  const embedding = createRandomEmbedding(dimValue, RANDOM_SEED)
-  EMBEDDING_CACHE.set(dimValue, embedding)
+  const embedding = createRandomEmbedding(dimValue, seed)
+  EMBEDDING_CACHE.set(cacheKey, embedding)
   return embedding
 }
 
@@ -191,13 +199,17 @@ function getCachedInvFreq(numFreq: number, baseValue: number) {
 }
 
 function buildMetricCoefficients(
-  blocks: Float64Array,
+  queryBlocks: Float64Array,
+  keyBlocks: Float64Array,
   numFreq: number,
   metric: readonly [number, number, number, number]
 ) {
-  const time = new Float64Array(numFreq)
-  const x = new Float64Array(numFreq)
-  const y = new Float64Array(numFreq)
+  const timeCosh = new Float64Array(numFreq)
+  const timeSinh = new Float64Array(numFreq)
+  const xCos = new Float64Array(numFreq)
+  const xSin = new Float64Array(numFreq)
+  const yCos = new Float64Array(numFreq)
+  const ySin = new Float64Array(numFreq)
   let constant = 0
 
   const [m0, m1, m2, m3] = metric
@@ -205,38 +217,65 @@ function buildMetricCoefficients(
   for (let frequencyIndex = 0; frequencyIndex < numFreq; frequencyIndex += 1) {
     const offset = frequencyIndex * MONSTER_SLICE
 
-    const xt = blocks[offset]
-    const xx = blocks[offset + 1]
-    const xy = blocks[offset + 2]
-    const xz = blocks[offset + 3]
+    const qxt = queryBlocks[offset]
+    const qxx = queryBlocks[offset + 1]
+    const qxy = queryBlocks[offset + 2]
+    const qxz = queryBlocks[offset + 3]
 
-    const yt = blocks[offset + 4]
-    const yx = blocks[offset + 5]
-    const yy = blocks[offset + 6]
-    const yz = blocks[offset + 7]
+    const qyt = queryBlocks[offset + 4]
+    const qyx = queryBlocks[offset + 5]
+    const qyy = queryBlocks[offset + 6]
+    const qyz = queryBlocks[offset + 7]
 
-    const zt = blocks[offset + 8]
-    const zx = blocks[offset + 9]
-    const zy = blocks[offset + 10]
-    const zz = blocks[offset + 11]
+    const qzt = queryBlocks[offset + 8]
+    const qzx = queryBlocks[offset + 9]
+    const qzy = queryBlocks[offset + 10]
+    const qzz = queryBlocks[offset + 11]
 
-    time[frequencyIndex] =
-      m0 * xt * xt +
-      m1 * xx * xx +
-      m0 * yt * yt +
-      m2 * yy * yy +
-      m0 * zt * zt +
-      m3 * zz * zz
+    const kxt = keyBlocks[offset]
+    const kxx = keyBlocks[offset + 1]
+    const kxy = keyBlocks[offset + 2]
+    const kxz = keyBlocks[offset + 3]
 
-    x[frequencyIndex] = m2 * xy * xy + m3 * xz * xz
-    y[frequencyIndex] = m1 * yx * yx + m3 * yz * yz
-    constant += m1 * zx * zx + m2 * zy * zy
+    const kyt = keyBlocks[offset + 4]
+    const kyx = keyBlocks[offset + 5]
+    const kyy = keyBlocks[offset + 6]
+    const kyz = keyBlocks[offset + 7]
+
+    const kzt = keyBlocks[offset + 8]
+    const kzx = keyBlocks[offset + 9]
+    const kzy = keyBlocks[offset + 10]
+    const kzz = keyBlocks[offset + 11]
+
+    timeCosh[frequencyIndex] =
+      m0 * qxt * kxt +
+      m1 * qxx * kxx +
+      m0 * qyt * kyt +
+      m2 * qyy * kyy +
+      m0 * qzt * kzt +
+      m3 * qzz * kzz
+
+    timeSinh[frequencyIndex] =
+      -(m0 * qxt * kxx + m1 * qxx * kxt) -
+      (m0 * qyt * kyy + m2 * qyy * kyt) -
+      (m0 * qzt * kzz + m3 * qzz * kzt)
+
+    xCos[frequencyIndex] = m2 * qxy * kxy + m3 * qxz * kxz
+    xSin[frequencyIndex] = -m2 * qxy * kxz + m3 * qxz * kxy
+
+    yCos[frequencyIndex] = m1 * qyx * kyx + m3 * qyz * kyz
+    ySin[frequencyIndex] = -m1 * qyx * kyz + m3 * qyz * kyx
+
+    constant += m1 * qzx * kzx + m2 * qzy * kzy
   }
 
   return {
-    time,
-    x,
-    y,
+    timeCosh,
+    timeSinh,
+    xCos,
+    xSin,
+    yCos,
+    ySin,
     constant,
   }
 }
@@ -248,15 +287,18 @@ function getCachedMetrics(dimValue: number, numFreq: number) {
     return cachedMetrics
   }
 
-  const embedding = getCachedEmbedding(dimValue)
+  const queryEmbedding = getCachedEmbedding(dimValue, QUERY_RANDOM_SEED)
+  const keyEmbedding = getCachedEmbedding(dimValue, KEY_RANDOM_SEED)
   const metrics = {
     "negative-positive": buildMetricCoefficients(
-      embedding,
+      queryEmbedding,
+      keyEmbedding,
       numFreq,
       [-1, 1, 1, 1]
     ),
     "positive-negative": buildMetricCoefficients(
-      embedding,
+      queryEmbedding,
+      keyEmbedding,
       numFreq,
       [1, -1, -1, -1]
     ),
@@ -273,6 +315,11 @@ function clamp(value: number, min: number, max: number) {
 function safeCosh(value: number) {
   const cappedValue = clamp(value, -40, 40)
   return Math.cosh(cappedValue)
+}
+
+function safeSinh(value: number) {
+  const cappedValue = clamp(value, -40, 40)
+  return Math.sinh(cappedValue)
 }
 
 export function getGridCoordinateRange(gridValue: number): GridCoordinateRange {
@@ -321,7 +368,8 @@ export function buildMonsterContext({
   return {
     gridValue,
     dimValue,
-    unit: extentValue / gridValue,
+    spatialUnit: SPATIAL_UNIT,
+    temporalUnit: TEMPORAL_UNIT,
     spatialInvFreq: getCachedInvFreq(numFreq, thetaValue),
     temporalInvFreq: getCachedInvFreq(numFreq, phiValue),
     metrics: getCachedMetrics(dimValue, numFreq),
@@ -332,7 +380,14 @@ export function computeHeatmap(
   context: MonsterContext,
   { etaValue, tValue, xValue, yValue }: ComputeHeatmapInput
 ): HeatmapResult {
-  const { gridValue, dimValue, unit, spatialInvFreq, temporalInvFreq } = context
+  const {
+    gridValue,
+    dimValue,
+    spatialUnit,
+    temporalUnit,
+    spatialInvFreq,
+    temporalInvFreq,
+  } = context
   const coefficients = context.metrics[etaValue]
   const coordinateRange = getGridCoordinateRange(gridValue)
   const queryX = clampToGridCoordinate(xValue, gridValue)
@@ -347,12 +402,13 @@ export function computeHeatmap(
 
   for (
     let frequencyIndex = 0;
-    frequencyIndex < coefficients.time.length;
+    frequencyIndex < coefficients.timeCosh.length;
     frequencyIndex += 1
   ) {
+    const scaledDelta = timeDelta * temporalUnit * temporalInvFreq[frequencyIndex]
     timeScore +=
-      coefficients.time[frequencyIndex] *
-      safeCosh(timeDelta * unit * temporalInvFreq[frequencyIndex])
+      coefficients.timeCosh[frequencyIndex] * safeCosh(scaledDelta) +
+      coefficients.timeSinh[frequencyIndex] * safeSinh(scaledDelta)
   }
 
   for (let col = 0; col < gridValue; col += 1) {
@@ -361,12 +417,13 @@ export function computeHeatmap(
 
     for (
       let frequencyIndex = 0;
-      frequencyIndex < coefficients.x.length;
+      frequencyIndex < coefficients.xCos.length;
       frequencyIndex += 1
     ) {
+      const scaledDelta = deltaX * spatialUnit * spatialInvFreq[frequencyIndex]
       xScore +=
-        coefficients.x[frequencyIndex] *
-        Math.cos(deltaX * unit * spatialInvFreq[frequencyIndex])
+        coefficients.xCos[frequencyIndex] * Math.cos(scaledDelta) +
+        coefficients.xSin[frequencyIndex] * Math.sin(scaledDelta)
     }
 
     xScores[col] = xScore
@@ -378,12 +435,13 @@ export function computeHeatmap(
 
     for (
       let frequencyIndex = 0;
-      frequencyIndex < coefficients.y.length;
+      frequencyIndex < coefficients.yCos.length;
       frequencyIndex += 1
     ) {
+      const scaledDelta = deltaY * spatialUnit * spatialInvFreq[frequencyIndex]
       yScore +=
-        coefficients.y[frequencyIndex] *
-        Math.cos(deltaY * unit * spatialInvFreq[frequencyIndex])
+        coefficients.yCos[frequencyIndex] * Math.cos(scaledDelta) +
+        coefficients.ySin[frequencyIndex] * Math.sin(scaledDelta)
     }
 
     yScores[row] = yScore
@@ -391,27 +449,32 @@ export function computeHeatmap(
 
   let minScore = Number.POSITIVE_INFINITY
   let maxScore = Number.NEGATIVE_INFINITY
+  let minSpatialScore = Number.POSITIVE_INFINITY
+  let maxSpatialScore = Number.NEGATIVE_INFINITY
   const normalizer = Math.sqrt(dimValue)
+  const timeOffset = timeScore / normalizer
 
   for (let row = 0; row < gridValue; row += 1) {
     for (let col = 0; col < gridValue; col += 1) {
       const index = row * gridValue + col
-      const score =
-        (timeScore + xScores[col] + yScores[row] + scoreOffset) / normalizer
+      const spatialScore = (xScores[col] + yScores[row] + scoreOffset) / normalizer
+      const score = spatialScore + timeOffset
 
       scores[index] = score
+      minSpatialScore = Math.min(minSpatialScore, spatialScore)
+      maxSpatialScore = Math.max(maxSpatialScore, spatialScore)
       minScore = Math.min(minScore, score)
       maxScore = Math.max(maxScore, score)
     }
   }
 
-  const scoreRange = maxScore - minScore
+  const spatialRange = maxSpatialScore - minSpatialScore
 
-  if (scoreRange <= Number.EPSILON) {
+  if (spatialRange <= Number.EPSILON) {
     normalizedScores.fill(0.5)
   } else {
     for (let index = 0; index < scores.length; index += 1) {
-      normalizedScores[index] = (scores[index] - minScore) / scoreRange
+      normalizedScores[index] = (scores[index] - minSpatialScore) / spatialRange
     }
   }
 
